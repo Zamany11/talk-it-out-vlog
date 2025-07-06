@@ -9,9 +9,12 @@ import { Progress } from "@/components/ui/progress";
 import { Play, ArrowLeft, Upload, Mic, User, Volume2, Image as ImageIcon, Wand2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCreateProject, useGenerateVideo } from "@/hooks/useProjects";
 
 const Create = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [script, setScript] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("");
@@ -19,10 +22,17 @@ const Create = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
 
+  const createProject = useCreateProject();
+  const generateVideo = useGenerateVideo();
+
   const maxCharacters = 300;
+  
+  // ElevenLabs voice IDs and names
   const voices = [
-    { id: "aria", name: "Aria", gender: "Female", accent: "American" },
-    { id: "roger", name: "Roger", gender: "Male", accent: "British" }
+    { id: "9BWtsMINqrJLrRacOk9x", name: "Aria", gender: "Female", accent: "American" },
+    { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", gender: "Male", accent: "British" },
+    { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "Female", accent: "American" },
+    { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "Male", accent: "American" }
   ];
 
   const avatars = [
@@ -45,28 +55,55 @@ const Create = () => {
       toast.error("Please select a voice");
       return;
     }
-
-    setIsGenerating(true);
-    setGenerationProgress(0);
-
-    // Simulate generation process
-    const steps = [
-      { progress: 20, message: "Processing script..." },
-      { progress: 40, message: "Generating voice..." },
-      { progress: 60, message: "Creating avatar..." },
-      { progress: 80, message: "Syncing lip movement..." },
-      { progress: 100, message: "Finalizing video..." }
-    ];
-
-    for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setGenerationProgress(step.progress);
-      toast.info(step.message);
+    if (!user) {
+      toast.error("Please log in to generate videos");
+      return;
     }
 
-    toast.success("Video generated successfully!");
-    setIsGenerating(false);
-    navigate('/dashboard');
+    try {
+      setIsGenerating(true);
+      setGenerationProgress(0);
+
+      // Step 1: Create the project
+      console.log('Creating project...');
+      const projectData = await createProject.mutateAsync({
+        title: `Video ${new Date().toLocaleDateString()}`,
+        script: script.trim(),
+        voice_type: selectedVoice.includes('female') || selectedVoice === "9BWtsMINqrJLrRacOk9x" || selectedVoice === "EXAVITQu4vr4xnSDxMaL" ? 'female' : 'male',
+        avatar_id: selectedAvatar === 'default' ? null : selectedAvatar,
+        user_id: user.id,
+        status: 'draft'
+      });
+
+      console.log('Project created:', projectData);
+      setGenerationProgress(10);
+
+      // Step 2: Generate the video
+      console.log('Starting video generation...');
+      await generateVideo.mutateAsync({
+        projectId: projectData.id,
+        script: script.trim(),
+        voiceId: selectedVoice,
+        avatarId: selectedAvatar
+      });
+
+      // Simulate progress updates
+      const progressUpdates = [20, 40, 60, 80, 100];
+      for (const progress of progressUpdates) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setGenerationProgress(progress);
+      }
+
+      toast.success("Video generated successfully!");
+      navigate('/dashboard');
+
+    } catch (error) {
+      console.error('Generation error:', error);
+      toast.error("Failed to generate video. Please try again.");
+    } finally {
+      setIsGenerating(false);
+      setGenerationProgress(0);
+    }
   };
 
   const renderStepContent = () => {
@@ -272,7 +309,7 @@ const Create = () => {
 
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating || !script || !selectedVoice}
+                disabled={isGenerating || !script || !selectedVoice || !user}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg py-3"
               >
                 {isGenerating ? (

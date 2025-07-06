@@ -45,3 +45,52 @@ export const useCreateProject = () => {
     }
   });
 };
+
+export const useGenerateVideo = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      script,
+      voiceId,
+      avatarId
+    }: {
+      projectId: string;
+      script: string;
+      voiceId: string;
+      avatarId?: string;
+    }) => {
+      console.log('Calling generate-video function with:', { projectId, script, voiceId, avatarId });
+      
+      const { data, error } = await supabase.functions.invoke('generate-video', {
+        body: {
+          projectId,
+          script,
+          voiceId,
+          avatarId
+        }
+      });
+
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
+
+      if (data?.error) {
+        console.error('Function returned error:', data.error);
+        throw new Error(data.error);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });      
+      toast.success('Video generated successfully!');
+    },
+    onError: (error) => {
+      console.error('Video generation error:', error);
+      toast.error('Failed to generate video: ' + error.message);
+    }
+  });
+};
