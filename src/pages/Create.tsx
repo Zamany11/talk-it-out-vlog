@@ -1,0 +1,387 @@
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Play, ArrowLeft, Upload, Mic, User, Volume2, Image as ImageIcon, Wand2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+
+const Create = () => {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [script, setScript] = useState("");
+  const [selectedVoice, setSelectedVoice] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("default");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+
+  const maxCharacters = 300;
+  const voices = [
+    { id: "aria", name: "Aria", gender: "Female", accent: "American" },
+    { id: "roger", name: "Roger", gender: "Male", accent: "British" }
+  ];
+
+  const avatars = [
+    { id: "default", name: "Professional Woman", preview: "/placeholder.svg" },
+    { id: "custom", name: "Upload Custom Image", preview: null }
+  ];
+
+  const handleScriptChange = (value: string) => {
+    if (value.length <= maxCharacters) {
+      setScript(value);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!script.trim()) {
+      toast.error("Please enter a script first");
+      return;
+    }
+    if (!selectedVoice) {
+      toast.error("Please select a voice");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationProgress(0);
+
+    // Simulate generation process
+    const steps = [
+      { progress: 20, message: "Processing script..." },
+      { progress: 40, message: "Generating voice..." },
+      { progress: 60, message: "Creating avatar..." },
+      { progress: 80, message: "Syncing lip movement..." },
+      { progress: 100, message: "Finalizing video..." }
+    ];
+
+    for (const step of steps) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setGenerationProgress(step.progress);
+      toast.info(step.message);
+    }
+
+    toast.success("Video generated successfully!");
+    setIsGenerating(false);
+    navigate('/dashboard');
+  };
+
+  const renderStepContent = () => {
+    switch (step) {
+      case 1:
+        return (
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Mic className="w-5 h-5 text-purple-600" />
+                <span>Script & Voice</span>
+              </CardTitle>
+              <CardDescription>
+                Enter your script and choose a voice for your avatar
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">Script</label>
+                <Textarea
+                  placeholder="Enter your script here... (max 300 characters)"
+                  value={script}
+                  onChange={(e) => handleScriptChange(e.target.value)}
+                  className="min-h-32 resize-none"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-sm text-gray-500">
+                    {script.length}/{maxCharacters} characters
+                  </span>
+                  <Badge variant={script.length > maxCharacters * 0.8 ? "destructive" : "secondary"}>
+                    {script.length > maxCharacters * 0.8 ? "Almost at limit" : "Good"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Voice Selection</label>
+                <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {voices.map((voice) => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        <div className="flex items-center space-x-2">
+                          <Volume2 className="w-4 h-4" />
+                          <span>{voice.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {voice.gender}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {voice.accent}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedVoice && script && (
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Play className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Preview Audio</span>
+                  </div>
+                  <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-100">
+                    <Play className="w-3 h-3 mr-1" />
+                    Play Preview
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case 2:
+        return (
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <User className="w-5 h-5 text-purple-600" />
+                <span>Choose Avatar</span>
+              </CardTitle>
+              <CardDescription>
+                Select an avatar or upload your own image
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                {avatars.map((avatar) => (
+                  <div
+                    key={avatar.id}
+                    className={`relative p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      selectedAvatar === avatar.id
+                        ? "border-purple-500 bg-purple-50"
+                        : "border-gray-200 hover:border-gray-300 bg-white"
+                    }`}
+                    onClick={() => setSelectedAvatar(avatar.id)}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      {avatar.preview ? (
+                        <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mb-3">
+                          <User className="w-12 h-12 text-purple-600" />
+                        </div>
+                      ) : (
+                        <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center mb-3">
+                          <Upload className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                      <h3 className="font-medium">{avatar.name}</h3>
+                      {avatar.id === "custom" && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Upload JPG or PNG
+                        </p>
+                      )}
+                    </div>
+                    {selectedAvatar === avatar.id && (
+                      <div className="absolute top-2 right-2">
+                        <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {selectedAvatar === "custom" && (
+                <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                  <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 mb-2">Upload your image</p>
+                  <Button variant="outline" size="sm">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose File
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case 3:
+        return (
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Wand2 className="w-5 h-5 text-purple-600" />
+                <span>Generate Video</span>
+              </CardTitle>
+              <CardDescription>
+                Review your settings and generate your avatar video
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium mb-2">Script Preview</h4>
+                  <p className="text-sm text-gray-600 italic">"{script}"</p>
+                  <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                    <span>{script.length} characters</span>
+                    <span>≈ {Math.ceil(script.length / 200)} seconds</span>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium mb-2">Voice</h4>
+                    <div className="flex items-center space-x-2">
+                      <Volume2 className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm">
+                        {voices.find(v => v.id === selectedVoice)?.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium mb-2">Avatar</h4>
+                    <div className="flex items-center space-x-2">
+                      <User className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm">
+                        {avatars.find(a => a.id === selectedAvatar)?.name}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {isGenerating && (
+                <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="font-medium">Generating your video...</span>
+                  </div>
+                  <Progress value={generationProgress} className="mb-2" />
+                  <p className="text-sm text-gray-600">
+                    This usually takes 1-2 minutes. Don't close this page.
+                  </p>
+                </div>
+              )}
+
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || !script || !selectedVoice}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg py-3"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Generate Video
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
+      {/* Header */}
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => step > 1 ? setStep(step - 1) : navigate('/dashboard')}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {step > 1 ? 'Back' : 'Dashboard'}
+            </Button>
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                <Play className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                Create Video
+              </span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-8">
+        {/* Progress Steps */}
+        <div className="mb-8">
+          <div className="flex items-center justify-center space-x-4 mb-4">
+            {[1, 2, 3].map((stepNumber) => (
+              <div key={stepNumber} className="flex items-center">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    step >= stepNumber
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }`}
+                >
+                  {stepNumber}
+                </div>
+                {stepNumber < 3 && (
+                  <div
+                    className={`w-16 h-1 mx-2 ${
+                      step > stepNumber ? "bg-purple-600" : "bg-gray-200"
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-1">
+              {step === 1 && "Script & Voice"}
+              {step === 2 && "Choose Avatar"}
+              {step === 3 && "Generate Video"}
+            </h2>
+            <p className="text-gray-600">
+              Step {step} of 3
+            </p>
+          </div>
+        </div>
+
+        {/* Step Content */}
+        <div className="max-w-2xl mx-auto">
+          {renderStepContent()}
+
+          {/* Navigation Buttons */}
+          {step < 3 && !isGenerating && (
+            <div className="flex justify-end mt-6">
+              <Button
+                onClick={() => setStep(step + 1)}
+                disabled={
+                  (step === 1 && (!script || !selectedVoice)) ||
+                  (step === 2 && !selectedAvatar)
+                }
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                Continue
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Create;
