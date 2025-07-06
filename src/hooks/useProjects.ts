@@ -54,21 +54,24 @@ export const useGenerateVideo = () => {
       projectId,
       script,
       voiceId,
-      avatarId
+      avatarId,
+      videoProvider = 'sadtalker'
     }: {
       projectId: string;
       script: string;
       voiceId: string;
       avatarId?: string;
+      videoProvider?: string;
     }) => {
-      console.log('Calling generate-video function with:', { projectId, script, voiceId, avatarId });
+      console.log('Calling generate-video function with:', { projectId, script, voiceId, avatarId, videoProvider });
       
       const { data, error } = await supabase.functions.invoke('generate-video', {
         body: {
           projectId,
           script,
           voiceId,
-          avatarId
+          avatarId,
+          videoProvider
         }
       });
 
