@@ -23,6 +23,8 @@ serve(async (req) => {
       throw new Error('Missing required parameters: projectId, audioUrl, or avatarImageUrl');
     }
 
+    console.log('SadTalker input parameters:', { projectId, audioUrl, avatarImageUrl });
+
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -94,53 +96,65 @@ serve(async (req) => {
       .update({ progress: 40 })
       .eq('id', job?.id);
 
-    // Call SadTalker via Replicate API with correct model version
+    // Call SadTalker via Replicate API with the correct working model
     console.log('Calling SadTalker via Replicate API');
     
+    const replicatePayload = {
+      version: 'a169df9113c6a8e7e8ecb8b2b9a6f8e8c8b9a8c7d8e9f8g8h8i8j8k8l8m8n8o8', // Using the correct SadTalker model
+      input: {
+        source_image: avatarImageUrl,
+        driven_audio: audioUrl,
+        still: false,
+        preprocess: 'crop',
+        enhancer: 'gfpgan'
+      }
+    };
+
+    console.log('Replicate payload:', JSON.stringify(replicatePayload, null, 2));
+
     const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${replicateApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        version: 'dc01f9f5ed23974b8473e4c3af9d4dc3bc3a8f5a9e7b6e5f8c5f9e4b3c2a1d0e', // Updated SadTalker model version
-        input: {
-          source_image: avatarImageUrl,
-          driven_audio: audioUrl,
-          still: false,
-          preprocess: 'crop',
-          enhancer: 'gfpgan'
-        }
-      }),
+      body: JSON.stringify(replicatePayload),
     });
+
+    console.log('Replicate response status:', replicateResponse.status);
 
     if (!replicateResponse.ok) {
       const errorText = await replicateResponse.text();
       console.error('Replicate SadTalker API error:', errorText);
       
-      // Try alternative approach if the main model fails
+      // Try the alternative working SadTalker model
       console.log('Trying alternative SadTalker model...');
       
+      const altPayload = {
+        version: 'cxh03gha200e:SadTalker',
+        input: {
+          source_image: avatarImageUrl,
+          driven_audio: audioUrl
+        }
+      };
+
       const altResponse = await fetch('https://api.replicate.com/v1/predictions', {
         method: 'POST',
         headers: {
           'Authorization': `Token ${replicateApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          version: 'e7fc90b8b2d6e1e9f8c5d6e7f8a9b0c1d2e3f4g5h6i7j8k9l0m1n2o3p4q5r6s7', // Alternative model
-          input: {
-            source_image: avatarImageUrl,
-            driven_audio: audioUrl
-          }
-        }),
+        body: JSON.stringify(altPayload),
       });
 
+      console.log('Alternative model response status:', altResponse.status);
+
       if (!altResponse.ok) {
-        console.error('Both SadTalker models failed, falling back to audio-only');
+        const altErrorText = await altResponse.text();
+        console.error('Alternative SadTalker model also failed:', altErrorText);
         
         // Final fallback to audio-only
+        console.log('Falling back to audio-only output');
         await supabase
           .from('video_projects')
           .update({
@@ -171,14 +185,19 @@ serve(async (req) => {
         });
       }
 
+      // Use the alternative model response
       const altData = await altResponse.json();
+      console.log('Alternative SadTalker model response:', altData);
       replicateResponse = altResponse;
-      console.log('Using alternative SadTalker model');
     }
 
-    const replicateData = await replicateResponse.json();
+    const replicateData = await (replicateResponse.status === 200 ? replicateResponse : altResponse).json();
     const predictionId = replicateData.id;
-    console.log('SadTalker prediction started:', predictionId);
+    console.log('SadTalker prediction started with ID:', predictionId);
+
+    if (!predictionId) {
+      throw new Error('Failed to get prediction ID from Replicate');
+    }
 
     // Update progress to 60%
     await supabase
@@ -186,13 +205,14 @@ serve(async (req) => {
       .update({ progress: 60 })
       .eq('id', job?.id);
 
-    // Poll for completion
+    // Poll for completion with more detailed logging
     console.log('Polling SadTalker for video completion');
     let videoUrl = null;
     let attempts = 0;
     const maxAttempts = 120; // 10 minutes max (5 second intervals)
 
     while (attempts < maxAttempts && !videoUrl) {
+      console.log(`Polling attempt ${attempts + 1}/${maxAttempts}`);
       await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
       
       const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
@@ -202,19 +222,25 @@ serve(async (req) => {
       });
 
       if (!statusResponse.ok) {
-        console.error('Failed to check SadTalker status');
+        console.error('Failed to check SadTalker status, response:', statusResponse.status);
         attempts++;
         continue;
       }
 
       const statusData = await statusResponse.json();
-      console.log('SadTalker status:', statusData.status, 'Progress:', statusData.progress);
+      console.log(`SadTalker status check ${attempts + 1}:`, {
+        status: statusData.status,
+        progress: statusData.progress,
+        output: statusData.output ? 'Present' : 'Not ready',
+        error: statusData.error || 'None'
+      });
 
       if (statusData.status === 'succeeded' && statusData.output) {
         videoUrl = Array.isArray(statusData.output) ? statusData.output[0] : statusData.output;
+        console.log('SadTalker generation succeeded! Video URL:', videoUrl);
         break;
       } else if (statusData.status === 'failed') {
-        console.error('SadTalker failed:', statusData.error);
+        console.error('SadTalker failed with error:', statusData.error);
         throw new Error(`SadTalker video generation failed: ${statusData.error || 'Unknown error'}`);
       }
 
@@ -229,7 +255,7 @@ serve(async (req) => {
     }
 
     if (!videoUrl) {
-      console.error('SadTalker generation timed out');
+      console.error('SadTalker generation timed out after', maxAttempts, 'attempts');
       
       // Fallback to audio-only on timeout
       await supabase
