@@ -37,8 +37,8 @@ const Create = () => {
   ];
 
   const avatars = [
-    { id: "default", name: "Professional", preview: "/placeholder.svg" },
-    { id: "custom", name: "Upload Custom Image", preview: null }
+    { id: "default", name: "Professional Avatar", preview: "/placeholder.svg", description: "AI-generated professional avatar" },
+    { id: "custom", name: "Upload Custom Image", preview: null, description: "Upload your own avatar image" }
   ];
 
   const handleScriptChange = (value: string) => {
@@ -88,13 +88,7 @@ const Create = () => {
         avatarId: selectedAvatar
       });
 
-      // Simulate progress updates
-      const progressUpdates = [20, 40, 60, 80, 100];
-      for (const progress of progressUpdates) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setGenerationProgress(progress);
-      }
-
+      // Progress will be updated by the backend
       toast.success("Video generated successfully!");
       navigate('/dashboard');
 
@@ -218,10 +212,20 @@ const Create = () => {
                 <span>Choose Avatar</span>
               </CardTitle>
               <CardDescription>
-                Select an avatar or upload your own image
+                Select an avatar for your talking video
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="p-4 bg-blue-50 rounded-lg mb-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <ImageIcon className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800">AI Video Generation</span>
+                </div>
+                <p className="text-sm text-blue-700">
+                  Your selected avatar will be animated with lip-sync to match your generated speech, creating a realistic talking video.
+                </p>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 {avatars.map((avatar) => (
                   <div
@@ -244,11 +248,9 @@ const Create = () => {
                         </div>
                       )}
                       <h3 className="font-medium">{avatar.name}</h3>
-                      {avatar.id === "custom" && (
-                        <p className="text-sm text-gray-500 mt-1">
-                          Upload JPG or PNG
-                        </p>
-                      )}
+                      <p className="text-sm text-gray-500 mt-1">
+                        {avatar.description}
+                      </p>
                     </div>
                     {selectedAvatar === avatar.id && (
                       <div className="absolute top-2 right-2">
@@ -266,7 +268,8 @@ const Create = () => {
               {selectedAvatar === "custom" && (
                 <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
                   <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600 mb-2">Upload your image</p>
+                  <p className="text-sm text-gray-600 mb-2">Upload your avatar image</p>
+                  <p className="text-xs text-gray-500 mb-3">Best results with clear face photos (JPG/PNG)</p>
                   <Button variant="outline" size="sm">
                     <Upload className="w-4 h-4 mr-2" />
                     Choose File
@@ -283,10 +286,10 @@ const Create = () => {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Wand2 className="w-5 h-5 text-purple-600" />
-                <span>Generate Video</span>
+                <span>Generate Talking Video</span>
               </CardTitle>
               <CardDescription>
-                Review your settings and generate your avatar video
+                Review your settings and generate your AI talking avatar video
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -321,17 +324,27 @@ const Create = () => {
                     </div>
                   </div>
                 </div>
+
+                <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Wand2 className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">AI Video Generation</span>
+                  </div>
+                  <p className="text-sm text-green-700">
+                    Your video will feature realistic lip-syncing and natural avatar movements synchronized with the generated speech.
+                  </p>
+                </div>
               </div>
 
               {isGenerating && (
                 <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="font-medium">Generating your video...</span>
+                    <span className="font-medium">Generating your talking video...</span>
                   </div>
                   <Progress value={generationProgress} className="mb-2" />
                   <p className="text-sm text-gray-600">
-                    This usually takes 1-2 minutes. Don't close this page.
+                    This process includes speech generation, avatar animation, and lip-syncing. This usually takes 2-5 minutes.
                   </p>
                 </div>
               )}
@@ -344,12 +357,12 @@ const Create = () => {
                 {isGenerating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Generating...
+                    Generating Talking Video...
                   </>
                 ) : (
                   <>
                     <Wand2 className="w-4 h-4 mr-2" />
-                    Generate Video
+                    Generate Talking Video
                   </>
                 )}
               </Button>
@@ -381,7 +394,7 @@ const Create = () => {
                 <Play className="w-4 h-4 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                Create Video
+                Create Talking Video
               </span>
             </div>
           </div>
@@ -417,7 +430,7 @@ const Create = () => {
             <h2 className="text-2xl font-bold mb-1">
               {step === 1 && "Script & Voice"}
               {step === 2 && "Choose Avatar"}
-              {step === 3 && "Generate Video"}
+              {step === 3 && "Generate Talking Video"}
             </h2>
             <p className="text-gray-600">
               Step {step} of 3

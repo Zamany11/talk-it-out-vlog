@@ -45,7 +45,7 @@ serve(async (req) => {
       .insert({
         project_id: projectId,
         status: 'processing',
-        progress: 0
+        progress: 10
       })
       .select()
       .single();
@@ -86,10 +86,10 @@ serve(async (req) => {
     const audioBuffer = await ttsResponse.arrayBuffer();
     console.log('Speech generated successfully, audio size:', audioBuffer.byteLength);
 
-    // Update progress to 50%
+    // Update progress to 40%
     await supabase
       .from('processing_jobs')
-      .update({ progress: 50 })
+      .update({ progress: 40 })
       .eq('id', job?.id);
 
     // Step 2: Upload audio to Supabase storage
@@ -108,50 +108,170 @@ serve(async (req) => {
       throw new Error(`Failed to upload audio: ${uploadError.message}`);
     }
 
+    // Get public URL for the audio
+    const { data: audioUrl } = supabase.storage
+      .from('videos')
+      .getPublicUrl(audioFileName);
+
+    // Update progress to 50%
+    await supabase
+      .from('processing_jobs')
+      .update({ progress: 50 })
+      .eq('id', job?.id);
+
+    // Step 3: Create talking avatar video with D-ID
+    console.log('Creating talking avatar video with D-ID');
+    
+    const didApiKey = Deno.env.get('DID_API_KEY');
+    if (!didApiKey) {
+      console.warn('D-ID API key not configured, using audio-only fallback');
+      
+      // Fallback: Use audio as video URL
+      await supabase
+        .from('video_projects')
+        .update({
+          status: 'completed',
+          video_url: audioUrl.publicUrl,
+          duration_seconds: Math.ceil(script.length / 15),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', projectId);
+
+      await supabase
+        .from('processing_jobs')
+        .update({
+          status: 'completed',
+          progress: 100,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', job?.id);
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Audio generated successfully (video generation requires D-ID API key)',
+        videoUrl: audioUrl.publicUrl,
+        audioUrl: audioUrl.publicUrl,
+        duration: Math.ceil(script.length / 15)
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Use default avatar image or custom avatar
+    let avatarImageUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&h=512&fit=crop&crop=face';
+    
+    if (avatarId && avatarId !== 'default') {
+      // Fetch custom avatar from database
+      const { data: avatarData } = await supabase
+        .from('avatars')
+        .select('image_url')
+        .eq('id', avatarId)
+        .single();
+      
+      if (avatarData?.image_url) {
+        avatarImageUrl = avatarData.image_url;
+      }
+    }
+
+    // Create D-ID talking avatar video
+    const didResponse = await fetch('https://api.d-id.com/talks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${didApiKey}`,
+      },
+      body: JSON.stringify({
+        source_url: avatarImageUrl,
+        script: {
+          type: 'audio',
+          audio_url: audioUrl.publicUrl,
+        },
+        config: {
+          fluent: true,
+          pad_audio: 0,
+        },
+      }),
+    });
+
+    if (!didResponse.ok) {
+      const errorText = await didResponse.text();
+      console.error('D-ID API error:', errorText);
+      throw new Error(`Failed to create talking avatar: ${errorText}`);
+    }
+
+    const didData = await didResponse.json();
+    const talkId = didData.id;
+    console.log('D-ID talk created:', talkId);
+
     // Update progress to 70%
     await supabase
       .from('processing_jobs')
       .update({ progress: 70 })
       .eq('id', job?.id);
 
-    // Step 3: Create a simple video with avatar (placeholder implementation)
-    console.log('Creating video with avatar');
-    
-    // For now, we'll create a simple HTML5 video structure
-    // In a real implementation, you'd use FFmpeg or similar to combine avatar image with audio
-    const estimatedDuration = Math.ceil(script.length / 15); // ~15 characters per second
-    
-    // Create a video metadata object
-    const videoMetadata = {
-      duration: estimatedDuration,
-      audioUrl: `${supabaseUrl}/storage/v1/object/public/videos/${audioFileName}`,
-      avatarType: avatarId || 'default',
-      script: script,
-      voiceId: voiceId
-    };
+    // Step 4: Poll D-ID for completion
+    console.log('Polling D-ID for video completion');
+    let videoUrl = null;
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes max
 
-    // For demo purposes, we'll use the audio URL as the video URL
-    // In production, you'd generate an actual video file here
-    const { data: audioUrl } = supabase.storage
-      .from('videos')
-      .getPublicUrl(audioFileName);
+    while (attempts < maxAttempts && !videoUrl) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      
+      const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
+        headers: {
+          'Authorization': `Basic ${didApiKey}`,
+        },
+      });
 
-    console.log('Audio/Video URL:', audioUrl.publicUrl);
+      if (!statusResponse.ok) {
+        console.error('Failed to check D-ID status');
+        attempts++;
+        continue;
+      }
 
-    // Update progress to 90%
+      const statusData = await statusResponse.json();
+      console.log('D-ID status:', statusData.status);
+
+      if (statusData.status === 'done' && statusData.result_url) {
+        videoUrl = statusData.result_url;
+        break;
+      } else if (statusData.status === 'error') {
+        throw new Error(`D-ID video generation failed: ${statusData.error?.description || 'Unknown error'}`);
+      }
+
+      attempts++;
+      
+      // Update progress based on attempts
+      const progressIncrement = Math.min(20, Math.floor((attempts / maxAttempts) * 20));
+      await supabase
+        .from('processing_jobs')
+        .update({ progress: 70 + progressIncrement })
+        .eq('id', job?.id);
+    }
+
+    if (!videoUrl) {
+      throw new Error('Video generation timed out');
+    }
+
+    console.log('Video generated successfully:', videoUrl);
+
+    // Update progress to 100%
     await supabase
       .from('processing_jobs')
-      .update({ progress: 90 })
+      .update({ progress: 100 })
       .eq('id', job?.id);
 
-    // Step 4: Update project with completion data
+    // Step 5: Update project with completion data
     console.log('Finalizing video project');
+    
+    const estimatedDuration = Math.ceil(script.length / 15);
     
     await supabase
       .from('video_projects')
       .update({
         status: 'completed',
-        video_url: audioUrl.publicUrl,
+        video_url: videoUrl,
         duration_seconds: estimatedDuration,
         updated_at: new Date().toISOString()
       })
@@ -172,10 +292,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'Video generated successfully',
-      videoUrl: audioUrl.publicUrl,
+      videoUrl: videoUrl,
       audioUrl: audioUrl.publicUrl,
-      duration: estimatedDuration,
-      metadata: videoMetadata
+      duration: estimatedDuration
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -196,6 +315,23 @@ serve(async (req) => {
           .from('video_projects')
           .update({ status: 'failed' })
           .eq('id', projectId);
+
+        // Also update processing job
+        const { data: jobs } = await supabase
+          .from('processing_jobs')
+          .select('id')
+          .eq('project_id', projectId)
+          .eq('status', 'processing');
+
+        if (jobs && jobs.length > 0) {
+          await supabase
+            .from('processing_jobs')
+            .update({ 
+              status: 'failed', 
+              error_message: error.message 
+            })
+            .eq('id', jobs[0].id);
+        }
       }
     } catch (updateError) {
       console.error('Failed to update project status:', updateError);
