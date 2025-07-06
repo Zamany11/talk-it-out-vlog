@@ -1,14 +1,22 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Mic, Image, Download, Users, Zap, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [isSignedIn, setIsSignedIn] = useState(false); // This will be replaced with actual auth
+  const { user, signOut } = useAuth();
+
+  const handleGetStarted = () => {
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      navigate('/auth');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
@@ -24,16 +32,21 @@ const Index = () => {
             </span>
           </div>
           <div className="flex items-center space-x-4">
-            {isSignedIn ? (
-              <Button onClick={() => navigate('/dashboard')} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                Dashboard
-              </Button>
+            {user ? (
+              <>
+                <Button onClick={() => navigate('/dashboard')} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                  Dashboard
+                </Button>
+                <Button variant="ghost" onClick={signOut}>
+                  Sign Out
+                </Button>
+              </>
             ) : (
               <>
-                <Button variant="ghost" onClick={() => setIsSignedIn(true)}>
+                <Button variant="ghost" onClick={() => navigate('/auth')}>
                   Sign In
                 </Button>
-                <Button onClick={() => setIsSignedIn(true)} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                <Button onClick={handleGetStarted} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
                   Get Started Free
                 </Button>
               </>
@@ -59,7 +72,7 @@ const Index = () => {
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
           <Button 
             size="lg" 
-            onClick={() => setIsSignedIn(true)}
+            onClick={handleGetStarted}
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg px-8 py-4"
           >
             Start Creating Free
@@ -162,7 +175,7 @@ const Index = () => {
           </p>
           <Button 
             size="lg" 
-            onClick={() => setIsSignedIn(true)}
+            onClick={handleGetStarted}
             className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-4"
           >
             Get Started - It's Free
