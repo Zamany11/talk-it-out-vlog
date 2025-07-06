@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +24,7 @@ const Create = () => {
   const createProject = useCreateProject();
   const generateVideo = useGenerateVideo();
 
-  const maxCharacters = 300;
+  const maxCharacters = 5000;
   
   // ElevenLabs voice IDs and names
   const voices = [
@@ -124,7 +123,7 @@ const Create = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Script</label>
                 <Textarea
-                  placeholder="Enter your script here... (max 300 characters)"
+                  placeholder="Enter your script here... (max 5000 characters)"
                   value={script}
                   onChange={(e) => handleScriptChange(e.target.value)}
                   className="min-h-32 resize-none"
