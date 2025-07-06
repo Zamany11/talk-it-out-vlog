@@ -5,11 +5,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Play, ArrowLeft, Upload, Mic, User, Volume2, Image as ImageIcon, Wand2 } from "lucide-react";
+import { Play, ArrowLeft, Upload, Mic, User, Volume2, Image as ImageIcon, Wand2, Pause } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateProject, useGenerateVideo } from "@/hooks/useProjects";
+import { useVoicePreview } from "@/hooks/useVoicePreview";
 
 const Create = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const Create = () => {
 
   const createProject = useCreateProject();
   const generateVideo = useGenerateVideo();
+  const { isPlaying, currentlyPlayingVoice, playVoicePreview, stopPreview } = useVoicePreview();
 
   const maxCharacters = 5000;
   
@@ -35,7 +37,7 @@ const Create = () => {
   ];
 
   const avatars = [
-    { id: "default", name: "Professional Woman", preview: "/placeholder.svg" },
+    { id: "default", name: "Professional", preview: "/placeholder.svg" },
     { id: "custom", name: "Upload Custom Image", preview: null }
   ];
 
@@ -105,6 +107,19 @@ const Create = () => {
     }
   };
 
+  const handleVoicePreview = async (voiceId: string) => {
+    if (!script.trim()) {
+      toast.error("Please enter some script text to preview the voice");
+      return;
+    }
+
+    if (isPlaying && currentlyPlayingVoice === voiceId) {
+      stopPreview();
+    } else {
+      await playVoicePreview(voiceId, script);
+    }
+  };
+
   const renderStepContent = () => {
     switch (step) {
       case 1:
@@ -169,9 +184,24 @@ const Create = () => {
                     <Play className="w-4 h-4 text-blue-600" />
                     <span className="text-sm font-medium text-blue-800">Preview Audio</span>
                   </div>
-                  <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-100">
-                    <Play className="w-3 h-3 mr-1" />
-                    Play Preview
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-blue-600 border-blue-200 hover:bg-blue-100"
+                    onClick={() => handleVoicePreview(selectedVoice)}
+                    disabled={isPlaying && currentlyPlayingVoice !== selectedVoice}
+                  >
+                    {isPlaying && currentlyPlayingVoice === selectedVoice ? (
+                      <>
+                        <Pause className="w-3 h-3 mr-1" />
+                        Stop Preview
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3 h-3 mr-1" />
+                        Play Preview
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
