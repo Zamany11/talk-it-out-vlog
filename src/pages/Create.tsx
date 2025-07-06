@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Play, ArrowLeft, Upload, Mic, User, Volume2, Image as ImageIcon, Wand2, Pause } from "lucide-react";
+import { Play, ArrowLeft, Upload, Mic, User, Volume2, Image as ImageIcon, Wand2, Pause, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +20,7 @@ const Create = () => {
   const [script, setScript] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState("default");
+  const [videoProvider, setVideoProvider] = useState("sadtalker");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
 
@@ -39,6 +41,23 @@ const Create = () => {
   const avatars = [
     { id: "default", name: "Professional Avatar", preview: "/placeholder.svg", description: "AI-generated professional avatar" },
     { id: "custom", name: "Upload Custom Image", preview: null, description: "Upload your own avatar image" }
+  ];
+
+  const videoProviders = [
+    { 
+      id: "sadtalker", 
+      name: "SadTalker", 
+      description: "Open-source, cost-effective solution",
+      badge: "Recommended",
+      badgeVariant: "default" as const
+    },
+    { 
+      id: "did", 
+      name: "D-ID", 
+      description: "Professional service (requires API key)",
+      badge: "Premium",
+      badgeVariant: "secondary" as const
+    }
   ];
 
   const handleScriptChange = (value: string) => {
@@ -79,13 +98,14 @@ const Create = () => {
       console.log('Project created:', projectData);
       setGenerationProgress(10);
 
-      // Step 2: Generate the video
-      console.log('Starting video generation...');
+      // Step 2: Generate the video with selected provider
+      console.log('Starting video generation with provider:', videoProvider);
       await generateVideo.mutateAsync({
         projectId: projectData.id,
         script: script.trim(),
         voiceId: selectedVoice,
-        avatarId: selectedAvatar
+        avatarId: selectedAvatar,
+        videoProvider
       });
 
       // Progress will be updated by the backend
@@ -209,60 +229,108 @@ const Create = () => {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <User className="w-5 h-5 text-purple-600" />
-                <span>Choose Avatar</span>
+                <span>Choose Avatar & Video Provider</span>
               </CardTitle>
               <CardDescription>
-                Select an avatar for your talking video
+                Select an avatar and video generation provider
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-4 bg-blue-50 rounded-lg mb-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <ImageIcon className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-800">AI Video Generation</span>
-                </div>
-                <p className="text-sm text-blue-700">
-                  Your selected avatar will be animated with lip-sync to match your generated speech, creating a realistic talking video.
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                {avatars.map((avatar) => (
-                  <div
-                    key={avatar.id}
-                    className={`relative p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      selectedAvatar === avatar.id
-                        ? "border-purple-500 bg-purple-50"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
-                    }`}
-                    onClick={() => setSelectedAvatar(avatar.id)}
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      {avatar.preview ? (
-                        <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mb-3">
-                          <User className="w-12 h-12 text-purple-600" />
+              {/* Video Provider Selection */}
+              <div>
+                <label className="block text-sm font-medium mb-3">Video Generation Provider</label>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {videoProviders.map((provider) => (
+                    <div
+                      key={provider.id}
+                      className={`relative p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        videoProvider === provider.id
+                          ? "border-purple-500 bg-purple-50"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      }`}
+                      onClick={() => setVideoProvider(provider.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Zap className="w-5 h-5 text-purple-600" />
+                          <div>
+                            <h3 className="font-medium">{provider.name}</h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {provider.description}
+                            </p>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center mb-3">
-                          <Upload className="w-8 h-8 text-gray-400" />
+                        <Badge variant={provider.badgeVariant} className="text-xs">
+                          {provider.badge}
+                        </Badge>
+                      </div>
+                      {videoProvider === provider.id && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
                         </div>
                       )}
-                      <h3 className="font-medium">{avatar.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {avatar.description}
-                      </p>
                     </div>
-                    {selectedAvatar === avatar.id && (
-                      <div className="absolute top-2 right-2">
-                        <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
+                  ))}
+                </div>
+                
+                {videoProvider === 'sadtalker' && (
+                  <div className="p-4 bg-green-50 rounded-lg mt-3">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Zap className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-800">SadTalker Benefits</span>
+                    </div>
+                    <p className="text-sm text-green-700">
+                      Open-source solution with more natural facial expressions and lip-sync. Cost-effective for high-volume usage.
+                    </p>
                   </div>
-                ))}
+                )}
+              </div>
+
+              {/* Avatar Selection */}
+              <div>
+                <label className="block text-sm font-medium mb-3">Avatar Selection</label>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {avatars.map((avatar) => (
+                    <div
+                      key={avatar.id}
+                      className={`relative p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        selectedAvatar === avatar.id
+                          ? "border-purple-500 bg-purple-50"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      }`}
+                      onClick={() => setSelectedAvatar(avatar.id)}
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        {avatar.preview ? (
+                          <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mb-3">
+                            <User className="w-12 h-12 text-purple-600" />
+                          </div>
+                        ) : (
+                          <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center mb-3">
+                            <Upload className="w-8 h-8 text-gray-400" />
+                          </div>
+                        )}
+                        <h3 className="font-medium">{avatar.name}</h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {avatar.description}
+                        </p>
+                      </div>
+                      {selectedAvatar === avatar.id && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {selectedAvatar === "custom" && (
@@ -340,7 +408,7 @@ const Create = () => {
                 <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="font-medium">Generating your talking video...</span>
+                    <span className="font-medium">Generating your talking video with {videoProviders.find(p => p.id === videoProvider)?.name}...</span>
                   </div>
                   <Progress value={generationProgress} className="mb-2" />
                   <p className="text-sm text-gray-600">
@@ -429,7 +497,7 @@ const Create = () => {
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-1">
               {step === 1 && "Script & Voice"}
-              {step === 2 && "Choose Avatar"}
+              {step === 2 && "Avatar & Provider"}
               {step === 3 && "Generate Talking Video"}
             </h2>
             <p className="text-gray-600">
@@ -449,7 +517,7 @@ const Create = () => {
                 onClick={() => setStep(step + 1)}
                 disabled={
                   (step === 1 && (!script || !selectedVoice)) ||
-                  (step === 2 && !selectedAvatar)
+                  (step === 2 && (!selectedAvatar || !videoProvider))
                 }
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >

@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.3';
@@ -17,7 +16,7 @@ serve(async (req) => {
   try {
     console.log('Starting video generation process');
     
-    const { projectId, script, voiceId, avatarId } = await req.json();
+    const { projectId, script, voiceId, avatarId, videoProvider = 'sadtalker' } = await req.json();
     
     if (!projectId || !script || !voiceId) {
       throw new Error('Missing required parameters: projectId, script, or voiceId');
@@ -119,45 +118,7 @@ serve(async (req) => {
       .update({ progress: 50 })
       .eq('id', job?.id);
 
-    // Step 3: Create talking avatar video with D-ID
-    console.log('Creating talking avatar video with D-ID');
-    
-    const didApiKey = Deno.env.get('DID_API_KEY');
-    if (!didApiKey) {
-      console.warn('D-ID API key not configured, using audio-only fallback');
-      
-      // Fallback: Use audio as video URL
-      await supabase
-        .from('video_projects')
-        .update({
-          status: 'completed',
-          video_url: audioUrl.publicUrl,
-          duration_seconds: Math.ceil(script.length / 15),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', projectId);
-
-      await supabase
-        .from('processing_jobs')
-        .update({
-          status: 'completed',
-          progress: 100,
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', job?.id);
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Audio generated successfully (video generation requires D-ID API key)',
-        videoUrl: audioUrl.publicUrl,
-        audioUrl: audioUrl.publicUrl,
-        duration: Math.ceil(script.length / 15)
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Use default avatar image or custom avatar
+    // Step 3: Determine avatar image URL
     let avatarImageUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&h=512&fit=crop&crop=face';
     
     if (avatarId && avatarId !== 'default') {
@@ -173,131 +134,197 @@ serve(async (req) => {
       }
     }
 
-    // Create D-ID talking avatar video
-    const didResponse = await fetch('https://api.d-id.com/talks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${didApiKey}`,
-      },
-      body: JSON.stringify({
-        source_url: avatarImageUrl,
-        script: {
-          type: 'audio',
-          audio_url: audioUrl.publicUrl,
-        },
-        config: {
-          fluent: true,
-          pad_audio: 0,
-        },
-      }),
-    });
-
-    if (!didResponse.ok) {
-      const errorText = await didResponse.text();
-      console.error('D-ID API error:', errorText);
-      throw new Error(`Failed to create talking avatar: ${errorText}`);
-    }
-
-    const didData = await didResponse.json();
-    const talkId = didData.id;
-    console.log('D-ID talk created:', talkId);
-
-    // Update progress to 70%
-    await supabase
-      .from('processing_jobs')
-      .update({ progress: 70 })
-      .eq('id', job?.id);
-
-    // Step 4: Poll D-ID for completion
-    console.log('Polling D-ID for video completion');
-    let videoUrl = null;
-    let attempts = 0;
-    const maxAttempts = 60; // 5 minutes max
-
-    while (attempts < maxAttempts && !videoUrl) {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    // Step 4: Choose video generation provider
+    console.log(`Using video provider: ${videoProvider}`);
+    
+    if (videoProvider === 'sadtalker') {
+      // Use SadTalker for video generation
+      console.log('Delegating to SadTalker service');
       
-      const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
-        headers: {
-          'Authorization': `Basic ${didApiKey}`,
-        },
+      const sadTalkerResponse = await supabase.functions.invoke('sadtalker-generate', {
+        body: {
+          projectId,
+          audioUrl: audioUrl.publicUrl,
+          avatarImageUrl
+        }
       });
 
-      if (!statusResponse.ok) {
-        console.error('Failed to check D-ID status');
-        attempts++;
-        continue;
+      if (sadTalkerResponse.error) {
+        console.error('SadTalker generation error:', sadTalkerResponse.error);
+        throw new Error(`SadTalker generation failed: ${sadTalkerResponse.error.message}`);
       }
 
-      const statusData = await statusResponse.json();
-      console.log('D-ID status:', statusData.status);
-
-      if (statusData.status === 'done' && statusData.result_url) {
-        videoUrl = statusData.result_url;
-        break;
-      } else if (statusData.status === 'error') {
-        throw new Error(`D-ID video generation failed: ${statusData.error?.description || 'Unknown error'}`);
-      }
-
-      attempts++;
+      return new Response(JSON.stringify(sadTalkerResponse.data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } else {
+      // Use D-ID for video generation (existing code)
+      console.log('Creating talking avatar video with D-ID');
       
-      // Update progress based on attempts
-      const progressIncrement = Math.min(20, Math.floor((attempts / maxAttempts) * 20));
+      const didApiKey = Deno.env.get('DID_API_KEY');
+      if (!didApiKey) {
+        console.warn('D-ID API key not configured, using audio-only fallback');
+        
+        // Fallback: Use audio as video URL
+        await supabase
+          .from('video_projects')
+          .update({
+            status: 'completed',
+            video_url: audioUrl.publicUrl,
+            duration_seconds: Math.ceil(script.length / 15),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', projectId);
+
+        await supabase
+          .from('processing_jobs')
+          .update({
+            status: 'completed',
+            progress: 100,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', job?.id);
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Audio generated successfully (video generation requires API keys)',
+          videoUrl: audioUrl.publicUrl,
+          audioUrl: audioUrl.publicUrl,
+          duration: Math.ceil(script.length / 15)
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Use default avatar image or custom avatar
+      
+
+      // Create D-ID talking avatar video
+      const didResponse = await fetch('https://api.d-id.com/talks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${didApiKey}`,
+        },
+        body: JSON.stringify({
+          source_url: avatarImageUrl,
+          script: {
+            type: 'audio',
+            audio_url: audioUrl.publicUrl,
+          },
+          config: {
+            fluent: true,
+            pad_audio: 0,
+          },
+        }),
+      });
+
+      if (!didResponse.ok) {
+        const errorText = await didResponse.text();
+        console.error('D-ID API error:', errorText);
+        throw new Error(`Failed to create talking avatar: ${errorText}`);
+      }
+
+      const didData = await didResponse.json();
+      const talkId = didData.id;
+      console.log('D-ID talk created:', talkId);
+
+      // Update progress to 70%
       await supabase
         .from('processing_jobs')
-        .update({ progress: 70 + progressIncrement })
+        .update({ progress: 70 })
         .eq('id', job?.id);
+
+      // Step 4: Poll D-ID for completion
+      console.log('Polling D-ID for video completion');
+      let videoUrl = null;
+      let attempts = 0;
+      const maxAttempts = 60; // 5 minutes max
+
+      while (attempts < maxAttempts && !videoUrl) {
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        
+        const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
+          headers: {
+            'Authorization': `Basic ${didApiKey}`,
+          },
+        });
+
+        if (!statusResponse.ok) {
+          console.error('Failed to check D-ID status');
+          attempts++;
+          continue;
+        }
+
+        const statusData = await statusResponse.json();
+        console.log('D-ID status:', statusData.status);
+
+        if (statusData.status === 'done' && statusData.result_url) {
+          videoUrl = statusData.result_url;
+          break;
+        } else if (statusData.status === 'error') {
+          throw new Error(`D-ID video generation failed: ${statusData.error?.description || 'Unknown error'}`);
+        }
+
+        attempts++;
+        
+        // Update progress based on attempts
+        const progressIncrement = Math.min(20, Math.floor((attempts / maxAttempts) * 20));
+        await supabase
+          .from('processing_jobs')
+          .update({ progress: 70 + progressIncrement })
+          .eq('id', job?.id);
+      }
+
+      if (!videoUrl) {
+        throw new Error('Video generation timed out');
+      }
+
+      console.log('Video generated successfully:', videoUrl);
+
+      // Update progress to 100%
+      await supabase
+        .from('processing_jobs')
+        .update({ progress: 100 })
+        .eq('id', job?.id);
+
+      // Step 5: Update project with completion data
+      console.log('Finalizing video project');
+      
+      const estimatedDuration = Math.ceil(script.length / 15);
+      
+      await supabase
+        .from('video_projects')
+        .update({
+          status: 'completed',
+          video_url: videoUrl,
+          duration_seconds: estimatedDuration,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', projectId);
+
+      // Update processing job to completed
+      await supabase
+        .from('processing_jobs')
+        .update({
+          status: 'completed',
+          progress: 100,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', job?.id);
+
+      console.log('Video generation completed successfully');
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Video generated successfully',
+        videoUrl: videoUrl,
+        audioUrl: audioUrl.publicUrl,
+        duration: estimatedDuration
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-
-    if (!videoUrl) {
-      throw new Error('Video generation timed out');
-    }
-
-    console.log('Video generated successfully:', videoUrl);
-
-    // Update progress to 100%
-    await supabase
-      .from('processing_jobs')
-      .update({ progress: 100 })
-      .eq('id', job?.id);
-
-    // Step 5: Update project with completion data
-    console.log('Finalizing video project');
-    
-    const estimatedDuration = Math.ceil(script.length / 15);
-    
-    await supabase
-      .from('video_projects')
-      .update({
-        status: 'completed',
-        video_url: videoUrl,
-        duration_seconds: estimatedDuration,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', projectId);
-
-    // Update processing job to completed
-    await supabase
-      .from('processing_jobs')
-      .update({
-        status: 'completed',
-        progress: 100,
-        completed_at: new Date().toISOString()
-      })
-      .eq('id', job?.id);
-
-    console.log('Video generation completed successfully');
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: 'Video generated successfully',
-      videoUrl: videoUrl,
-      audioUrl: audioUrl.publicUrl,
-      duration: estimatedDuration
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
     console.error('Error in generate-video function:', error);
