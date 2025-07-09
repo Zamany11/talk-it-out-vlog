@@ -23,6 +23,8 @@ serve(async (req) => {
       throw new Error('Missing required parameters: projectId, text, or voiceStyle');
     }
 
+    console.log(`Received request - Project: ${projectId}, Voice: ${voiceStyle}, Text length: ${text.length}`);
+
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -52,25 +54,40 @@ serve(async (req) => {
 
     console.log('Created processing job:', job?.id);
 
-    // Map voice styles to Kokoro TTS parameters
-    const voiceStyleMapping = {
-      "normal": { voice: "af_bella", speed: 1.0, emotion: "neutral" },
-      "vlog": { voice: "af_sarah", speed: 1.1, emotion: "excited" },
-      "pdf": { voice: "bf_emma", speed: 0.9, emotion: "neutral" },
-      "announcer": { voice: "am_adam", speed: 1.0, emotion: "bold" },
-      "narrator": { voice: "am_michael", speed: 0.95, emotion: "dramatic" },
-      "assistant": { voice: "af_sky", speed: 1.0, emotion: "helpful" }
-    };
-
-    const voiceConfig = voiceStyleMapping[voiceStyle] || voiceStyleMapping["normal"];
-    
-    // Generate audio with Replicate Kokoro TTS
-    console.log('Generating audio with Replicate Kokoro TTS');
-    
+    // Check Replicate API key
     const replicateApiKey = Deno.env.get('REPLICATE_API_KEY');
     if (!replicateApiKey) {
       throw new Error('REPLICATE_API_KEY is not configured');
     }
+
+    console.log('Replicate API key found, proceeding with generation');
+
+    // Updated voice style mapping for Kokoro TTS
+    const voiceStyleMapping = {
+      "normal": { voice: "af_bella", speed: 1.0 },
+      "vlog": { voice: "af_sarah", speed: 1.1 },
+      "pdf": { voice: "bf_emma", speed: 0.9 },
+      "announcer": { voice: "am_adam", speed: 1.0 },
+      "narrator": { voice: "am_michael", speed: 0.95 },
+      "assistant": { voice: "af_sky", speed: 1.0 }
+    };
+
+    const voiceConfig = voiceStyleMapping[voiceStyle] || voiceStyleMapping["normal"];
+    console.log('Using voice config:', voiceConfig);
+    
+    // Generate audio with Replicate Kokoro TTS
+    console.log('Generating audio with Replicate Kokoro TTS');
+    
+    const replicatePayload = {
+      version: "a5836f6db16e7bbc0caf668d87a98fa4b534d7e2ae9c9b508abe1e12f2d43349",
+      input: {
+        text: text,
+        voice: voiceConfig.voice,
+        speed: voiceConfig.speed
+      }
+    };
+
+    console.log('Replicate payload:', JSON.stringify(replicatePayload, null, 2));
 
     const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
@@ -78,20 +95,15 @@ serve(async (req) => {
         'Authorization': `Token ${replicateApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        version: "a5836f6db16e7bbc0caf668d87a98fa4b534d7e2ae9c9b508abe1e12f2d43349", // Kokoro TTS version
-        input: {
-          text: text,
-          voice: voiceConfig.voice,
-          speed: voiceConfig.speed,
-          emotion: voiceConfig.emotion
-        }
-      }),
+      body: JSON.stringify(replicatePayload),
     });
+
+    console.log('Replicate response status:', replicateResponse.status);
 
     if (!replicateResponse.ok) {
       const errorText = await replicateResponse.text();
-      throw new Error(`Replicate API error: ${errorText}`);
+      console.error('Replicate API error response:', errorText);
+      throw new Error(`Replicate API error (${replicateResponse.status}): ${errorText}`);
     }
 
     const replicateData = await replicateResponse.json();
@@ -108,8 +120,12 @@ serve(async (req) => {
     let attempts = 0;
     const maxAttempts = 30; // 2.5 minutes max
 
+    console.log('Starting polling for completion...');
+
     while (attempts < maxAttempts && !audioUrl) {
       await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      
+      console.log(`Polling attempt ${attempts + 1}/${maxAttempts}`);
       
       const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${replicateData.id}`, {
         headers: {
@@ -118,18 +134,20 @@ serve(async (req) => {
       });
 
       if (!statusResponse.ok) {
-        console.error('Failed to check Replicate status');
+        console.error('Failed to check Replicate status:', statusResponse.status);
         attempts++;
         continue;
       }
 
       const statusData = await statusResponse.json();
-      console.log('Replicate status:', statusData.status);
+      console.log('Replicate status:', statusData.status, 'Progress:', statusData.progress);
 
       if (statusData.status === 'succeeded' && statusData.output) {
         audioUrl = statusData.output;
+        console.log('Audio generation completed, URL:', audioUrl);
         break;
       } else if (statusData.status === 'failed') {
+        console.error('Replicate generation failed:', statusData.error);
         throw new Error(`Replicate audio generation failed: ${statusData.error || 'Unknown error'}`);
       }
 
@@ -144,7 +162,7 @@ serve(async (req) => {
     }
 
     if (!audioUrl) {
-      throw new Error('Audio generation timed out');
+      throw new Error('Audio generation timed out after 2.5 minutes');
     }
 
     console.log('Audio generated successfully:', audioUrl);
