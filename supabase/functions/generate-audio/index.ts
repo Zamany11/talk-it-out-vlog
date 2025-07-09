@@ -65,31 +65,29 @@ serve(async (req) => {
 
     console.log('Replicate API key found, proceeding with generation');
 
-    // Updated voice style mapping for a working TTS model
+    // Voice style mapping for Coqui XTTS v2 model (reliable TTS model)
     const voiceStyleMapping = {
-      "normal": { voice: "en_speaker_0", speed: 1.0 },
-      "vlog": { voice: "en_speaker_1", speed: 1.1 },
-      "pdf": { voice: "en_speaker_2", speed: 0.9 },
-      "announcer": { voice: "en_speaker_3", speed: 1.0 },
-      "narrator": { voice: "en_speaker_4", speed: 0.95 },
-      "assistant": { voice: "en_speaker_5", speed: 1.0 }
+      "normal": { voice: "Ana Florence", speed: 1.0 },
+      "vlog": { voice: "Andrew Chipper", speed: 1.1 },
+      "pdf": { voice: "Baldur Sanjin", speed: 0.9 },
+      "announcer": { voice: "Claribel Dervla", speed: 1.0 },
+      "narrator": { voice: "Daisy Studious", speed: 0.95 },
+      "assistant": { voice: "Gracie Wise", speed: 1.0 }
     };
 
     const voiceConfig = voiceStyleMapping[voiceStyle] || voiceStyleMapping["normal"];
     console.log('Using voice config:', voiceConfig);
     
-    // Generate audio with Replicate using a working TTS model
-    console.log('Generating audio with Replicate TTS');
+    // Generate audio with Replicate using Coqui XTTS v2
+    console.log('Generating audio with Coqui XTTS v2');
     
     const replicatePayload = {
-      version: "3c1ba116f18a6c8b2c7bb50241bf121d5bf714759577e87b8ecf19b9ced8a119",
+      version: "684bc3855b37866c0c65add2ff39c78f3dea3f4ff103a436465326e0f438d55e",
       input: {
         text: text,
         speaker: voiceConfig.voice,
         language: "en",
-        cleanup_voice: false,
-        enhance: true,
-        high_quality: false
+        cleanup_voice: false
       }
     };
 
@@ -208,7 +206,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Audio generated successfully with TTS',
+      message: 'Audio generated successfully with Coqui XTTS v2',
       audioUrl: audioUrl,
       duration: estimatedDuration
     }), {
