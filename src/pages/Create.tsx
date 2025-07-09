@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,7 +122,7 @@ const Create = () => {
       console.log('Project created:', projectData);
       setGenerationProgress(10);
 
-      // Step 2: Generate the audio with Replicate Kokoro TTS
+      // Step 2: Generate the audio with Facebook MMS TTS
       console.log('Starting audio generation with voice style:', selectedIntent);
       await generateAudio.mutateAsync({
         projectId: projectData.id,
@@ -131,7 +130,7 @@ const Create = () => {
         voiceStyle: selectedIntent
       });
 
-      toast.success("Audio generated successfully with Kokoro TTS!");
+      toast.success("Audio generated successfully with Facebook MMS TTS!");
       navigate('/dashboard');
 
     } catch (error) {
@@ -284,7 +283,7 @@ const Create = () => {
                 <span>Generate Audio</span>
               </CardTitle>
               <CardDescription>
-                Review your settings and generate your AI audio with Kokoro TTS
+                Review your settings and generate your AI audio with Facebook MMS TTS
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -321,10 +320,10 @@ const Create = () => {
                 <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
                     <Wand2 className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">AI Audio Generation with Kokoro TTS</span>
+                    <span className="text-sm font-medium text-green-800">AI Audio Generation with Facebook MMS TTS</span>
                   </div>
                   <p className="text-sm text-green-700">
-                    Your audio will be generated using the latest Kokoro TTS model via Replicate API, providing natural and expressive speech synthesis.
+                    Your audio will be generated using Facebook's MMS TTS model via Replicate API, providing clear multilingual speech synthesis completely free.
                   </p>
                 </div>
               </div>
@@ -333,7 +332,7 @@ const Create = () => {
                 <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="font-medium">Generating your audio with Kokoro TTS...</span>
+                    <span className="font-medium">Generating your audio with Facebook MMS TTS...</span>
                   </div>
                   <Progress value={generationProgress} className="mb-2" />
                   <p className="text-sm text-gray-600">
@@ -350,12 +349,12 @@ const Create = () => {
                 {isGenerating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Generating Audio with Kokoro TTS...
+                    Generating Audio with Facebook MMS TTS...
                   </>
                 ) : (
                   <>
                     <Wand2 className="w-4 h-4 mr-2" />
-                    Generate Audio (Kokoro TTS)
+                    Generate Audio (Facebook MMS TTS)
                   </>
                 )}
               </Button>

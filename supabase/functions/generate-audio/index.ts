@@ -65,29 +65,27 @@ serve(async (req) => {
 
     console.log('Replicate API key found, proceeding with generation');
 
-    // Voice style mapping for Coqui XTTS v2 model (reliable TTS model)
+    // Voice style mapping for Facebook MMS TTS model (free model)
     const voiceStyleMapping = {
-      "normal": { voice: "Ana Florence", speed: 1.0 },
-      "vlog": { voice: "Andrew Chipper", speed: 1.1 },
-      "pdf": { voice: "Baldur Sanjin", speed: 0.9 },
-      "announcer": { voice: "Claribel Dervla", speed: 1.0 },
-      "narrator": { voice: "Daisy Studious", speed: 0.95 },
-      "assistant": { voice: "Gracie Wise", speed: 1.0 }
+      "normal": { voice: "eng", speed: 1.0 },
+      "vlog": { voice: "eng", speed: 1.1 },
+      "pdf": { voice: "eng", speed: 0.9 },
+      "announcer": { voice: "eng", speed: 1.0 },
+      "narrator": { voice: "eng", speed: 0.95 },
+      "assistant": { voice: "eng", speed: 1.0 }
     };
 
     const voiceConfig = voiceStyleMapping[voiceStyle] || voiceStyleMapping["normal"];
     console.log('Using voice config:', voiceConfig);
     
-    // Generate audio with Replicate using Coqui XTTS v2
-    console.log('Generating audio with Coqui XTTS v2');
+    // Generate audio with Replicate using Facebook MMS TTS (free model)
+    console.log('Generating audio with Facebook MMS TTS');
     
     const replicatePayload = {
-      version: "684bc3855b37866c0c65add2ff39c78f3dea3f4ff103a436465326e0f438d55e",
+      version: "fb9020c90c203be1f773b2d4c6698de742e5c35c64ad3de1bbce00a4cbee34b4",
       input: {
         text: text,
-        speaker: voiceConfig.voice,
-        language: "en",
-        cleanup_voice: false
+        language: voiceConfig.voice
       }
     };
 
@@ -206,7 +204,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Audio generated successfully with Coqui XTTS v2',
+      message: 'Audio generated successfully with Facebook MMS TTS',
       audioUrl: audioUrl,
       duration: estimatedDuration
     }), {
