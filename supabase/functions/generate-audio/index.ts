@@ -14,10 +14,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let requestBody;
   try {
     console.log('Starting audio generation process');
     
-    const { projectId, text, voiceStyle } = await req.json();
+    // Parse request body once and store it
+    requestBody = await req.json();
+    const { projectId, text, voiceStyle } = requestBody;
     
     if (!projectId || !text || !voiceStyle) {
       throw new Error('Missing required parameters: projectId, text, or voiceStyle');
@@ -62,28 +65,31 @@ serve(async (req) => {
 
     console.log('Replicate API key found, proceeding with generation');
 
-    // Updated voice style mapping for Kokoro TTS
+    // Updated voice style mapping for a working TTS model
     const voiceStyleMapping = {
-      "normal": { voice: "af_bella", speed: 1.0 },
-      "vlog": { voice: "af_sarah", speed: 1.1 },
-      "pdf": { voice: "bf_emma", speed: 0.9 },
-      "announcer": { voice: "am_adam", speed: 1.0 },
-      "narrator": { voice: "am_michael", speed: 0.95 },
-      "assistant": { voice: "af_sky", speed: 1.0 }
+      "normal": { voice: "en_speaker_0", speed: 1.0 },
+      "vlog": { voice: "en_speaker_1", speed: 1.1 },
+      "pdf": { voice: "en_speaker_2", speed: 0.9 },
+      "announcer": { voice: "en_speaker_3", speed: 1.0 },
+      "narrator": { voice: "en_speaker_4", speed: 0.95 },
+      "assistant": { voice: "en_speaker_5", speed: 1.0 }
     };
 
     const voiceConfig = voiceStyleMapping[voiceStyle] || voiceStyleMapping["normal"];
     console.log('Using voice config:', voiceConfig);
     
-    // Generate audio with Replicate Kokoro TTS
-    console.log('Generating audio with Replicate Kokoro TTS');
+    // Generate audio with Replicate using a working TTS model
+    console.log('Generating audio with Replicate TTS');
     
     const replicatePayload = {
-      version: "a5836f6db16e7bbc0caf668d87a98fa4b534d7e2ae9c9b508abe1e12f2d43349",
+      version: "3c1ba116f18a6c8b2c7bb50241bf121d5bf714759577e87b8ecf19b9ced8a119",
       input: {
         text: text,
-        voice: voiceConfig.voice,
-        speed: voiceConfig.speed
+        speaker: voiceConfig.voice,
+        language: "en",
+        cleanup_voice: false,
+        enhance: true,
+        high_quality: false
       }
     };
 
@@ -202,7 +208,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Audio generated successfully with Kokoro TTS',
+      message: 'Audio generated successfully with TTS',
       audioUrl: audioUrl,
       duration: estimatedDuration
     }), {
@@ -214,8 +220,7 @@ serve(async (req) => {
     
     // Try to update the project status to failed if we have the projectId
     try {
-      const body = await req.clone().json();
-      const { projectId } = body;
+      const { projectId } = requestBody || {};
       if (projectId) {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
