@@ -6,10 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Play, Download, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import VideoPlayer from './VideoPlayer';
-import type { VideoProject } from '@/hooks/useProjects';
+import type { AudioProject } from '@/hooks/useProjects';
 
 interface ProjectCardProps {
-  project: VideoProject;
+  project: AudioProject;
 }
 
 const ProjectCard = ({ project }: ProjectCardProps) => {
