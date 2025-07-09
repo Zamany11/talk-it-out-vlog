@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,12 +29,12 @@ const Create = () => {
 
   const maxCharacters = 5000;
   
-  // ElevenLabs voice IDs and names
+  // Coqui TTS voice configurations (mapped to previous ElevenLabs IDs for compatibility)
   const voices = [
-    { id: "9BWtsMINqrJLrRacOk9x", name: "Aria", gender: "Female", accent: "American" },
-    { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", gender: "Male", accent: "British" },
-    { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "Female", accent: "American" },
-    { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "Male", accent: "American" }
+    { id: "9BWtsMINqrJLrRacOk9x", name: "Aria", gender: "Female", accent: "American", model: "tacotron2-DDC" },
+    { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", gender: "Male", accent: "British", model: "vits" },
+    { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "Female", accent: "American", model: "glow-tts" },
+    { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "Male", accent: "American", model: "speedy-speech" }
   ];
 
   const avatars = [
@@ -98,7 +97,7 @@ const Create = () => {
       console.log('Project created:', projectData);
       setGenerationProgress(10);
 
-      // Step 2: Generate the video with selected provider
+      // Step 2: Generate the video with selected provider and Coqui TTS
       console.log('Starting video generation with provider:', videoProvider);
       await generateVideo.mutateAsync({
         projectId: projectData.id,
@@ -109,12 +108,12 @@ const Create = () => {
       });
 
       // Progress will be updated by the backend
-      toast.success("Video generated successfully!");
+      toast.success("Video generated successfully with Coqui TTS!");
       navigate('/dashboard');
 
     } catch (error) {
       console.error('Generation error:', error);
-      toast.error("Failed to generate video. Please try again.");
+      toast.error("Failed to generate video. Please ensure Coqui TTS server is running.");
     } finally {
       setIsGenerating(false);
       setGenerationProgress(0);
@@ -145,7 +144,7 @@ const Create = () => {
                 <span>Script & Voice</span>
               </CardTitle>
               <CardDescription>
-                Enter your script and choose a voice for your avatar
+                Enter your script and choose a voice for your avatar (powered by Coqui TTS)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -168,7 +167,7 @@ const Create = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Voice Selection</label>
+                <label className="block text-sm font-medium mb-2">Voice Selection (Coqui TTS)</label>
                 <Select value={selectedVoice} onValueChange={setSelectedVoice}>
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a voice" />
@@ -190,13 +189,18 @@ const Create = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    🆓 Now using Coqui TTS - a free and open-source text-to-speech engine!
+                  </p>
+                </div>
               </div>
 
               {selectedVoice && script && (
                 <div className="p-4 bg-blue-50 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
                     <Play className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">Preview Audio</span>
+                    <span className="text-sm font-medium text-blue-800">Preview Audio (Coqui TTS)</span>
                   </div>
                   <Button 
                     size="sm" 
@@ -217,6 +221,9 @@ const Create = () => {
                       </>
                     )}
                   </Button>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Note: Ensure Coqui TTS server is running for voice preview functionality
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -357,7 +364,7 @@ const Create = () => {
                 <span>Generate Talking Video</span>
               </CardTitle>
               <CardDescription>
-                Review your settings and generate your AI talking avatar video
+                Review your settings and generate your AI talking avatar video with Coqui TTS
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -373,7 +380,7 @@ const Create = () => {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium mb-2">Voice</h4>
+                    <h4 className="font-medium mb-2">Voice (Coqui TTS)</h4>
                     <div className="flex items-center space-x-2">
                       <Volume2 className="w-4 h-4 text-purple-600" />
                       <span className="text-sm">
@@ -396,10 +403,10 @@ const Create = () => {
                 <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
                     <Wand2 className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">AI Video Generation</span>
+                    <span className="text-sm font-medium text-green-800">AI Video Generation with Coqui TTS</span>
                   </div>
                   <p className="text-sm text-green-700">
-                    Your video will feature realistic lip-syncing and natural avatar movements synchronized with the generated speech.
+                    Your video will feature realistic lip-syncing and natural avatar movements synchronized with speech generated by the free and open-source Coqui TTS engine.
                   </p>
                 </div>
               </div>
@@ -408,11 +415,11 @@ const Create = () => {
                 <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="font-medium">Generating your talking video with {videoProviders.find(p => p.id === videoProvider)?.name}...</span>
+                    <span className="font-medium">Generating your talking video with {videoProviders.find(p => p.id === videoProvider)?.name} and Coqui TTS...</span>
                   </div>
                   <Progress value={generationProgress} className="mb-2" />
                   <p className="text-sm text-gray-600">
-                    This process includes speech generation, avatar animation, and lip-syncing. This usually takes 2-5 minutes.
+                    This process includes speech generation with Coqui TTS, avatar animation, and lip-syncing. This usually takes 2-5 minutes.
                   </p>
                 </div>
               )}
@@ -425,12 +432,12 @@ const Create = () => {
                 {isGenerating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Generating Talking Video...
+                    Generating Talking Video with Coqui TTS...
                   </>
                 ) : (
                   <>
                     <Wand2 className="w-4 h-4 mr-2" />
-                    Generate Talking Video
+                    Generate Talking Video (Coqui TTS)
                   </>
                 )}
               </Button>

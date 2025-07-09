@@ -19,7 +19,7 @@ export const useVoicePreview = () => {
       setIsPlaying(true);
       setCurrentlyPlayingVoice(voiceId);
 
-      // Call our edge function to generate preview audio
+      // Call our edge function to generate preview audio with Coqui TTS
       const { data, error } = await supabase.functions.invoke('voice-preview', {
         body: {
           voiceId,
@@ -29,6 +29,14 @@ export const useVoicePreview = () => {
 
       if (error) {
         throw error;
+      }
+
+      if (data?.fallback) {
+        // Handle fallback case when Coqui TTS is not available
+        toast.error(data.error || 'Coqui TTS server not available. Please set up Coqui TTS for voice previews.');
+        setIsPlaying(false);
+        setCurrentlyPlayingVoice(null);
+        return;
       }
 
       if (data?.audioContent) {
@@ -55,10 +63,11 @@ export const useVoicePreview = () => {
 
         setAudio(newAudio);
         await newAudio.play();
+        toast.success('Voice preview generated with Coqui TTS');
       }
     } catch (error) {
       console.error('Voice preview error:', error);
-      toast.error('Failed to generate voice preview');
+      toast.error('Failed to generate voice preview. Make sure Coqui TTS server is running.');
       setIsPlaying(false);
       setCurrentlyPlayingVoice(null);
     }
