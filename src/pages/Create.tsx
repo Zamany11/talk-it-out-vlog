@@ -1,81 +1,108 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Play, ArrowLeft, Upload, Mic, User, Volume2, Image as ImageIcon, Wand2, Pause, Zap } from "lucide-react";
+import { ArrowLeft, Upload, Mic, Volume2, Wand2, FileText, User, Megaphone, BookOpen, HeadphonesIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCreateProject, useGenerateVideo } from "@/hooks/useProjects";
-import { useVoicePreview } from "@/hooks/useVoicePreview";
+import { useCreateProject, useGenerateAudio } from "@/hooks/useProjects";
 
 const Create = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [step, setStep] = useState(1);
-  const [script, setScript] = useState("");
-  const [selectedVoice, setSelectedVoice] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState("default");
-  const [videoProvider, setVideoProvider] = useState("sadtalker");
+  const [selectedIntent, setSelectedIntent] = useState("");
+  const [text, setText] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
 
   const createProject = useCreateProject();
-  const generateVideo = useGenerateVideo();
-  const { isPlaying, currentlyPlayingVoice, playVoicePreview, stopPreview } = useVoicePreview();
+  const generateAudio = useGenerateAudio();
 
   const maxCharacters = 5000;
   
-  // Coqui TTS voice configurations (mapped to previous ElevenLabs IDs for compatibility)
-  const voices = [
-    { id: "9BWtsMINqrJLrRacOk9x", name: "Aria", gender: "Female", accent: "American", model: "tacotron2-DDC" },
-    { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", gender: "Male", accent: "British", model: "vits" },
-    { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "Female", accent: "American", model: "glow-tts" },
-    { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "Male", accent: "American", model: "speedy-speech" }
-  ];
-
-  const avatars = [
-    { id: "default", name: "Professional Avatar", preview: "/placeholder.svg", description: "AI-generated professional avatar" },
-    { id: "custom", name: "Upload Custom Image", preview: null, description: "Upload your own avatar image" }
-  ];
-
-  const videoProviders = [
+  // Voice intent options with descriptions and icons
+  const voiceIntents = [
     { 
-      id: "sadtalker", 
-      name: "SadTalker", 
-      description: "Open-source, cost-effective solution",
-      badge: "Recommended",
-      badgeVariant: "default" as const
+      id: "normal", 
+      name: "Normal", 
+      description: "Default voice, balanced tone for general content",
+      icon: Volume2,
+      color: "bg-blue-50 border-blue-200 text-blue-700"
     },
     { 
-      id: "did", 
-      name: "D-ID", 
-      description: "Professional service (requires API key)",
-      badge: "Premium",
-      badgeVariant: "secondary" as const
+      id: "vlog", 
+      name: "Vlog", 
+      description: "Energetic, conversational, expressive for vlogs",
+      icon: User,
+      color: "bg-orange-50 border-orange-200 text-orange-700"
+    },
+    { 
+      id: "pdf", 
+      name: "PDF", 
+      description: "Neutral, professional tone for document reading",
+      icon: FileText,
+      color: "bg-green-50 border-green-200 text-green-700"
+    },
+    { 
+      id: "announcer", 
+      name: "Announcer", 
+      description: "Bold, impactful, attention-grabbing voice",
+      icon: Megaphone,
+      color: "bg-red-50 border-red-200 text-red-700"
+    },
+    { 
+      id: "narrator", 
+      name: "Narrator", 
+      description: "Immersive, dramatic voice for storytelling",
+      icon: BookOpen,
+      color: "bg-purple-50 border-purple-200 text-purple-700"
+    },
+    { 
+      id: "assistant", 
+      name: "Assistant", 
+      description: "Supportive, clear, instructive voice",
+      icon: HeadphonesIcon,
+      color: "bg-teal-50 border-teal-200 text-teal-700"
     }
   ];
 
-  const handleScriptChange = (value: string) => {
+  const handleTextChange = (value: string) => {
     if (value.length <= maxCharacters) {
-      setScript(value);
+      setText(value);
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      setUploadedFile(file);
+      // In a real implementation, you'd extract text from the PDF here
+      toast.success('PDF uploaded successfully! Text extraction feature coming soon.');
+    } else {
+      toast.error('Please upload a valid PDF file');
     }
   };
 
   const handleGenerate = async () => {
-    if (!script.trim()) {
-      toast.error("Please enter a script first");
+    const contentText = selectedIntent === 'pdf' && uploadedFile ? 
+      'PDF text extraction will be implemented here' : 
+      text.trim();
+
+    if (!contentText) {
+      toast.error("Please enter text or upload a PDF");
       return;
     }
-    if (!selectedVoice) {
-      toast.error("Please select a voice");
+    if (!selectedIntent) {
+      toast.error("Please select a voice intent");
       return;
     }
     if (!user) {
-      toast.error("Please log in to generate videos");
+      toast.error("Please log in to generate audio");
       return;
     }
 
@@ -86,10 +113,9 @@ const Create = () => {
       // Step 1: Create the project
       console.log('Creating project...');
       const projectData = await createProject.mutateAsync({
-        title: `Video ${new Date().toLocaleDateString()}`,
-        script: script.trim(),
-        voice_type: selectedVoice.includes('female') || selectedVoice === "9BWtsMINqrJLrRacOk9x" || selectedVoice === "EXAVITQu4vr4xnSDxMaL" ? 'female' : 'male',
-        avatar_id: selectedAvatar === 'default' ? null : selectedAvatar,
+        title: `Audio ${voiceIntents.find(i => i.id === selectedIntent)?.name} ${new Date().toLocaleDateString()}`,
+        script: contentText,
+        voice_type: 'custom',
         user_id: user.id,
         status: 'draft'
       });
@@ -97,39 +123,23 @@ const Create = () => {
       console.log('Project created:', projectData);
       setGenerationProgress(10);
 
-      // Step 2: Generate the video with selected provider and Coqui TTS
-      console.log('Starting video generation with provider:', videoProvider);
-      await generateVideo.mutateAsync({
+      // Step 2: Generate the audio with Replicate Kokoro TTS
+      console.log('Starting audio generation with voice style:', selectedIntent);
+      await generateAudio.mutateAsync({
         projectId: projectData.id,
-        script: script.trim(),
-        voiceId: selectedVoice,
-        avatarId: selectedAvatar,
-        videoProvider
+        text: contentText,
+        voiceStyle: selectedIntent
       });
 
-      // Progress will be updated by the backend
-      toast.success("Video generated successfully with Coqui TTS!");
+      toast.success("Audio generated successfully with Kokoro TTS!");
       navigate('/dashboard');
 
     } catch (error) {
       console.error('Generation error:', error);
-      toast.error("Failed to generate video. Please ensure Coqui TTS server is running.");
+      toast.error("Failed to generate audio. Please try again.");
     } finally {
       setIsGenerating(false);
       setGenerationProgress(0);
-    }
-  };
-
-  const handleVoicePreview = async (voiceId: string) => {
-    if (!script.trim()) {
-      toast.error("Please enter some script text to preview the voice");
-      return;
-    }
-
-    if (isPlaying && currentlyPlayingVoice === voiceId) {
-      stopPreview();
-    } else {
-      await playVoicePreview(voiceId, script);
     }
   };
 
@@ -141,91 +151,50 @@ const Create = () => {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Mic className="w-5 h-5 text-purple-600" />
-                <span>Script & Voice</span>
+                <span>Choose Voice Intent</span>
               </CardTitle>
               <CardDescription>
-                Enter your script and choose a voice for your avatar (powered by Coqui TTS)
+                Select the style and tone that best fits your content
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium mb-2">Script</label>
-                <Textarea
-                  placeholder="Enter your script here... (max 5000 characters)"
-                  value={script}
-                  onChange={(e) => handleScriptChange(e.target.value)}
-                  className="min-h-32 resize-none"
-                />
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-sm text-gray-500">
-                    {script.length}/{maxCharacters} characters
-                  </span>
-                  <Badge variant={script.length > maxCharacters * 0.8 ? "destructive" : "secondary"}>
-                    {script.length > maxCharacters * 0.8 ? "Almost at limit" : "Good"}
-                  </Badge>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Voice Selection (Coqui TTS)</label>
-                <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {voices.map((voice) => (
-                      <SelectItem key={voice.id} value={voice.id}>
-                        <div className="flex items-center space-x-2">
-                          <Volume2 className="w-4 h-4" />
-                          <span>{voice.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {voice.gender}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {voice.accent}
-                          </Badge>
+            <CardContent className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                {voiceIntents.map((intent) => {
+                  const IconComponent = intent.icon;
+                  return (
+                    <div
+                      key={intent.id}
+                      className={`relative p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        selectedIntent === intent.id
+                          ? "border-purple-500 bg-purple-50"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      }`}
+                      onClick={() => setSelectedIntent(intent.id)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className={`p-2 rounded-lg ${intent.color}`}>
+                          <IconComponent className="w-5 h-5" />
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">
-                    🆓 Now using Coqui TTS - a free and open-source text-to-speech engine!
-                  </p>
-                </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium">{intent.name}</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {intent.description}
+                          </p>
+                        </div>
+                      </div>
+                      {selectedIntent === intent.id && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-
-              {selectedVoice && script && (
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Play className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">Preview Audio (Coqui TTS)</span>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="text-blue-600 border-blue-200 hover:bg-blue-100"
-                    onClick={() => handleVoicePreview(selectedVoice)}
-                    disabled={isPlaying && currentlyPlayingVoice !== selectedVoice}
-                  >
-                    {isPlaying && currentlyPlayingVoice === selectedVoice ? (
-                      <>
-                        <Pause className="w-3 h-3 mr-1" />
-                        Stop Preview
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3 h-3 mr-1" />
-                        Play Preview
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-blue-600 mt-1">
-                    Note: Ensure Coqui TTS server is running for voice preview functionality
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
         );
@@ -235,122 +204,73 @@ const Create = () => {
           <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <User className="w-5 h-5 text-purple-600" />
-                <span>Choose Avatar & Video Provider</span>
+                <FileText className="w-5 h-5 text-purple-600" />
+                <span>Content Input</span>
               </CardTitle>
               <CardDescription>
-                Select an avatar and video generation provider
+                {selectedIntent === 'pdf' 
+                  ? 'Upload a PDF document to convert to audio'
+                  : 'Enter the text you want to convert to audio'
+                }
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Video Provider Selection */}
-              <div>
-                <label className="block text-sm font-medium mb-3">Video Generation Provider</label>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {videoProviders.map((provider) => (
-                    <div
-                      key={provider.id}
-                      className={`relative p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        videoProvider === provider.id
-                          ? "border-purple-500 bg-purple-50"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      }`}
-                      onClick={() => setVideoProvider(provider.id)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Zap className="w-5 h-5 text-purple-600" />
-                          <div>
-                            <h3 className="font-medium">{provider.name}</h3>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {provider.description}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant={provider.badgeVariant} className="text-xs">
-                          {provider.badge}
-                        </Badge>
-                      </div>
-                      {videoProvider === provider.id && (
-                        <div className="absolute top-2 right-2">
-                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                
-                {videoProvider === 'sadtalker' && (
-                  <div className="p-4 bg-green-50 rounded-lg mt-3">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Zap className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-800">SadTalker Benefits</span>
-                    </div>
-                    <p className="text-sm text-green-700">
-                      Open-source solution with more natural facial expressions and lip-sync. Cost-effective for high-volume usage.
-                    </p>
+              {selectedIntent === 'pdf' ? (
+                <div className="space-y-4">
+                  <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 mb-2">Upload your PDF document</p>
+                    <p className="text-xs text-gray-500 mb-3">We'll extract the text and convert it to audio</p>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="pdf-upload"
+                    />
+                    <Button asChild variant="outline" size="sm">
+                      <label htmlFor="pdf-upload" className="cursor-pointer">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Choose PDF File
+                      </label>
+                    </Button>
                   </div>
-                )}
-              </div>
-
-              {/* Avatar Selection */}
-              <div>
-                <label className="block text-sm font-medium mb-3">Avatar Selection</label>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {avatars.map((avatar) => (
-                    <div
-                      key={avatar.id}
-                      className={`relative p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        selectedAvatar === avatar.id
-                          ? "border-purple-500 bg-purple-50"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      }`}
-                      onClick={() => setSelectedAvatar(avatar.id)}
-                    >
-                      <div className="flex flex-col items-center text-center">
-                        {avatar.preview ? (
-                          <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mb-3">
-                            <User className="w-12 h-12 text-purple-600" />
-                          </div>
-                        ) : (
-                          <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center mb-3">
-                            <Upload className="w-8 h-8 text-gray-400" />
-                          </div>
-                        )}
-                        <h3 className="font-medium">{avatar.name}</h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {avatar.description}
-                        </p>
-                      </div>
-                      {selectedAvatar === avatar.id && (
-                        <div className="absolute top-2 right-2">
-                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                      )}
+                  {uploadedFile && (
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <p className="text-sm text-green-700">
+                        ✓ {uploadedFile.name} uploaded successfully
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-
-              {selectedAvatar === "custom" && (
-                <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
-                  <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600 mb-2">Upload your avatar image</p>
-                  <p className="text-xs text-gray-500 mb-3">Best results with clear face photos (JPG/PNG)</p>
-                  <Button variant="outline" size="sm">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Choose File
-                  </Button>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Text Content</label>
+                  <Textarea
+                    placeholder="Enter your text here... (max 5000 characters)"
+                    value={text}
+                    onChange={(e) => handleTextChange(e.target.value)}
+                    className="min-h-32 resize-none"
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-sm text-gray-500">
+                      {text.length}/{maxCharacters} characters
+                    </span>
+                  </div>
                 </div>
               )}
+
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Volume2 className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800">
+                    Selected Voice: {voiceIntents.find(i => i.id === selectedIntent)?.name}
+                  </span>
+                </div>
+                <p className="text-sm text-blue-700">
+                  {voiceIntents.find(i => i.id === selectedIntent)?.description}
+                </p>
+              </div>
             </CardContent>
           </Card>
         );
@@ -361,52 +281,50 @@ const Create = () => {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Wand2 className="w-5 h-5 text-purple-600" />
-                <span>Generate Talking Video</span>
+                <span>Generate Audio</span>
               </CardTitle>
               <CardDescription>
-                Review your settings and generate your AI talking avatar video with Coqui TTS
+                Review your settings and generate your AI audio with Kokoro TTS
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium mb-2">Script Preview</h4>
-                  <p className="text-sm text-gray-600 italic">"{script}"</p>
+                  <h4 className="font-medium mb-2">Content Preview</h4>
+                  <p className="text-sm text-gray-600 italic">
+                    {selectedIntent === 'pdf' && uploadedFile 
+                      ? `"PDF: ${uploadedFile.name}"`
+                      : `"${text}"`
+                    }
+                  </p>
                   <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                    <span>{script.length} characters</span>
-                    <span>≈ {Math.ceil(script.length / 200)} seconds</span>
+                    <span>
+                      {selectedIntent === 'pdf' && uploadedFile 
+                        ? 'PDF document'
+                        : `${text.length} characters`
+                      }
+                    </span>
+                    <span>≈ {Math.ceil((text.length || 500) / 200)} seconds</span>
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium mb-2">Voice (Coqui TTS)</h4>
-                    <div className="flex items-center space-x-2">
-                      <Volume2 className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm">
-                        {voices.find(v => v.id === selectedVoice)?.name}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium mb-2">Avatar</h4>
-                    <div className="flex items-center space-x-2">
-                      <User className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm">
-                        {avatars.find(a => a.id === selectedAvatar)?.name}
-                      </span>
-                    </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium mb-2">Voice Style</h4>
+                  <div className="flex items-center space-x-2">
+                    <Volume2 className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm">
+                      {voiceIntents.find(v => v.id === selectedIntent)?.name} - {voiceIntents.find(v => v.id === selectedIntent)?.description}
+                    </span>
                   </div>
                 </div>
 
                 <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
                     <Wand2 className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">AI Video Generation with Coqui TTS</span>
+                    <span className="text-sm font-medium text-green-800">AI Audio Generation with Kokoro TTS</span>
                   </div>
                   <p className="text-sm text-green-700">
-                    Your video will feature realistic lip-syncing and natural avatar movements synchronized with speech generated by the free and open-source Coqui TTS engine.
+                    Your audio will be generated using the latest Kokoro TTS model via Replicate API, providing natural and expressive speech synthesis.
                   </p>
                 </div>
               </div>
@@ -415,29 +333,29 @@ const Create = () => {
                 <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="font-medium">Generating your talking video with {videoProviders.find(p => p.id === videoProvider)?.name} and Coqui TTS...</span>
+                    <span className="font-medium">Generating your audio with Kokoro TTS...</span>
                   </div>
                   <Progress value={generationProgress} className="mb-2" />
                   <p className="text-sm text-gray-600">
-                    This process includes speech generation with Coqui TTS, avatar animation, and lip-syncing. This usually takes 2-5 minutes.
+                    This process includes text processing and neural voice synthesis. This usually takes 1-3 minutes.
                   </p>
                 </div>
               )}
 
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating || !script || !selectedVoice || !user}
+                disabled={isGenerating || (!text && !uploadedFile) || !selectedIntent || !user}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg py-3"
               >
                 {isGenerating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Generating Talking Video with Coqui TTS...
+                    Generating Audio with Kokoro TTS...
                   </>
                 ) : (
                   <>
                     <Wand2 className="w-4 h-4 mr-2" />
-                    Generate Talking Video (Coqui TTS)
+                    Generate Audio (Kokoro TTS)
                   </>
                 )}
               </Button>
@@ -466,10 +384,10 @@ const Create = () => {
             </Button>
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <Play className="w-4 h-4 text-white" />
+                <Volume2 className="w-4 h-4 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                Create Talking Video
+                Create Audio
               </span>
             </div>
           </div>
@@ -503,9 +421,9 @@ const Create = () => {
           </div>
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-1">
-              {step === 1 && "Script & Voice"}
-              {step === 2 && "Avatar & Provider"}
-              {step === 3 && "Generate Talking Video"}
+              {step === 1 && "Voice Intent"}
+              {step === 2 && "Content Input"}
+              {step === 3 && "Generate Audio"}
             </h2>
             <p className="text-gray-600">
               Step {step} of 3
@@ -523,8 +441,8 @@ const Create = () => {
               <Button
                 onClick={() => setStep(step + 1)}
                 disabled={
-                  (step === 1 && (!script || !selectedVoice)) ||
-                  (step === 2 && (!selectedAvatar || !videoProvider))
+                  (step === 1 && !selectedIntent) ||
+                  (step === 2 && !text && (!uploadedFile || selectedIntent !== 'pdf'))
                 }
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >

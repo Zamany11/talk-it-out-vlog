@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
-export type VideoProject = Tables<'video_projects'>;
-export type VideoProjectInsert = TablesInsert<'video_projects'>;
+export type AudioProject = Tables<'video_projects'>; // We'll reuse the existing table for now
+export type AudioProjectInsert = TablesInsert<'video_projects'>;
 
 export const useProjects = () => {
   return useQuery({
@@ -26,7 +26,7 @@ export const useCreateProject = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (project: VideoProjectInsert) => {
+    mutationFn: async (project: AudioProjectInsert) => {
       const { data, error } = await supabase
         .from('video_projects')
         .insert([project])
@@ -46,32 +46,26 @@ export const useCreateProject = () => {
   });
 };
 
-export const useGenerateVideo = () => {
+export const useGenerateAudio = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
       projectId,
-      script,
-      voiceId,
-      avatarId,
-      videoProvider = 'sadtalker'
+      text,
+      voiceStyle
     }: {
       projectId: string;
-      script: string;
-      voiceId: string;
-      avatarId?: string;
-      videoProvider?: string;
+      text: string;
+      voiceStyle: string;
     }) => {
-      console.log('Calling generate-video function with:', { projectId, script, voiceId, avatarId, videoProvider });
+      console.log('Calling generate-audio function with:', { projectId, text, voiceStyle });
       
-      const { data, error } = await supabase.functions.invoke('generate-video', {
+      const { data, error } = await supabase.functions.invoke('generate-audio', {
         body: {
           projectId,
-          script,
-          voiceId,
-          avatarId,
-          videoProvider
+          text,
+          voiceStyle
         }
       });
 
@@ -89,11 +83,11 @@ export const useGenerateVideo = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });      
-      toast.success('Video generated successfully!');
+      toast.success('Audio generated successfully!');
     },
     onError: (error) => {
-      console.error('Video generation error:', error);
-      toast.error('Failed to generate video: ' + error.message);
+      console.error('Audio generation error:', error);
+      toast.error('Failed to generate audio: ' + error.message);
     }
   });
 };
